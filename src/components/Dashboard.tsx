@@ -1,10 +1,14 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useSignalEngine } from '../hooks/useSignalEngine';
 import { TradingChart } from './TradingChart';
 import { SignalCard } from './SignalCard';
 import { RiskCalculator } from './RiskCalculator';
 import { SessionClock } from './SessionClock';
 import { NewsFilter } from './NewsFilter';
+import { LiveSignalsView } from './views/LiveSignalsView';
+import { SMCAnalysisView } from './views/SMCAnalysisView';
+import { HistoryView } from './views/HistoryView';
+import { AnalyticsView } from './views/AnalyticsView';
 import { 
   LayoutDashboard, 
   Settings, 
@@ -18,8 +22,11 @@ import {
 import { cn } from '../lib/utils';
 import { Toaster, toast } from 'sonner';
 
+type ViewType = 'terminal' | 'live-signals' | 'smc-analysis' | 'history' | 'analytics';
+
 export const Dashboard: React.FC = () => {
   const { data, currentSignal, indicators, smc } = useSignalEngine();
+  const [activeView, setActiveView] = useState<ViewType>('terminal');
 
   // Force dark mode
   React.useEffect(() => {
@@ -35,6 +42,86 @@ export const Dashboard: React.FC = () => {
       );
     }
   }, [currentSignal?.type, currentSignal?.entry]);
+
+  const renderMainContent = () => {
+    switch (activeView) {
+      case 'live-signals':
+        return <LiveSignalsView />;
+      case 'smc-analysis':
+        return <SMCAnalysisView />;
+      case 'history':
+        return <HistoryView />;
+      case 'analytics':
+        return <AnalyticsView />;
+      default:
+        return (
+          <div className="p-8 space-y-8">
+            {/* Top Row: Indicators & Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              <StatCard 
+                label="Trend Detection" 
+                value={indicators.trend} 
+                subValue={`${indicators.trendStrength.toFixed(0)}% Intensity`}
+                icon={<Gauge className="text-primary" />}
+                status={indicators.trend === 'Bullish' ? 'success' : 'error'}
+              />
+              <StatCard 
+                label="RSI (14)" 
+                value={indicators.rsi.toFixed(1)} 
+                subValue={indicators.rsi > 70 ? 'Overbought' : indicators.rsi < 30 ? 'Oversold' : 'Neutral'}
+                icon={<Activity className="text-blue-500" />}
+              />
+              <StatCard 
+                label="Volatility" 
+                value="0.0015" 
+                subValue="Low Range"
+                icon={<BarChart3 className="text-amber-500" />}
+              />
+              <StatCard 
+                label="AI Engine" 
+                value="Active" 
+                subValue="95% Precision"
+                icon={<Zap className="text-emerald-500" />}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
+              {/* Chart Area */}
+              <div className="xl:col-span-8 space-y-6">
+                <TradingChart data={data} indicators={indicators} smc={smc} />
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                   <div className="p-6 rounded-xl border border-border bg-card">
+                      <h3 className="text-sm font-bold uppercase tracking-widest text-muted-foreground mb-4 flex items-center gap-2">
+                        <Layers size={16} /> MTF Analysis
+                      </h3>
+                      <div className="grid grid-cols-4 gap-3">
+                         {['M1', 'M5', 'M15', 'M30', 'H1', 'H4', 'D1', 'W1'].map(tf => (
+                           <div key={tf} className="flex flex-col items-center gap-1">
+                              <span className="text-[10px] font-bold text-muted-foreground">{tf}</span>
+                              <div className={cn(
+                                "w-full h-2 rounded-full",
+                                indicators.trend === 'Bullish' ? "bg-emerald-500" : "bg-rose-500"
+                              )} />
+                           </div>
+                         ))}
+                      </div>
+                   </div>
+
+                   <NewsFilter />
+                </div>
+              </div>
+
+              {/* Signal & Actions */}
+              <div className="xl:col-span-4 flex flex-col gap-6">
+                <SignalCard signal={currentSignal} />
+                <RiskCalculator currentSignal={currentSignal} />
+              </div>
+            </div>
+          </div>
+        );
+    }
+  };
 
   return (
     <div className="flex h-screen bg-background overflow-hidden font-sans antialiased text-foreground">
@@ -52,11 +139,36 @@ export const Dashboard: React.FC = () => {
         </div>
 
         <nav className="flex-1 px-4 py-4 space-y-1">
-          <SidebarItem icon={<LayoutDashboard size={18} />} label="Terminal" active />
-          <SidebarItem icon={<Activity size={18} />} label="Live Signals" />
-          <SidebarItem icon={<Layers size={18} />} label="SMC Analysis" />
-          <SidebarItem icon={<History size={18} />} label="History" />
-          <SidebarItem icon={<BarChart3 size={18} />} label="Analytics" />
+          <SidebarItem 
+            icon={<LayoutDashboard size={18} />} 
+            label="Terminal" 
+            active={activeView === 'terminal'}
+            onClick={() => setActiveView('terminal')}
+          />
+          <SidebarItem 
+            icon={<Activity size={18} />} 
+            label="Live Signals" 
+            active={activeView === 'live-signals'}
+            onClick={() => setActiveView('live-signals')}
+          />
+          <SidebarItem 
+            icon={<Layers size={18} />} 
+            label="SMC Analysis" 
+            active={activeView === 'smc-analysis'}
+            onClick={() => setActiveView('smc-analysis')}
+          />
+          <SidebarItem 
+            icon={<History size={18} />} 
+            label="History" 
+            active={activeView === 'history'}
+            onClick={() => setActiveView('history')}
+          />
+          <SidebarItem 
+            icon={<BarChart3 size={18} />} 
+            label="Analytics" 
+            active={activeView === 'analytics'}
+            onClick={() => setActiveView('analytics')}
+          />
         </nav>
 
         <div className="p-4 border-t border-border">
@@ -79,80 +191,27 @@ export const Dashboard: React.FC = () => {
           <SessionClock />
         </header>
 
-        <div className="p-8 space-y-8">
-          {/* Top Row: Indicators & Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <StatCard 
-              label="Trend Detection" 
-              value={indicators.trend} 
-              subValue={`${indicators.trendStrength.toFixed(0)}% Intensity`}
-              icon={<Gauge className="text-primary" />}
-              status={indicators.trend === 'Bullish' ? 'success' : 'error'}
-            />
-            <StatCard 
-              label="RSI (14)" 
-              value={indicators.rsi.toFixed(1)} 
-              subValue={indicators.rsi > 70 ? 'Overbought' : indicators.rsi < 30 ? 'Oversold' : 'Neutral'}
-              icon={<Activity className="text-blue-500" />}
-            />
-            <StatCard 
-              label="Volatility" 
-              value="0.0015" 
-              subValue="Low Range"
-              icon={<BarChart3 className="text-amber-500" />}
-            />
-            <StatCard 
-              label="AI Engine" 
-              value="Active" 
-              subValue="95% Precision"
-              icon={<Zap className="text-emerald-500" />}
-            />
-          </div>
-
-          <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
-            {/* Chart Area */}
-            <div className="xl:col-span-8 space-y-6">
-              <TradingChart data={data} indicators={indicators} smc={smc} />
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                 <div className="p-6 rounded-xl border border-border bg-card">
-                    <h3 className="text-sm font-bold uppercase tracking-widest text-muted-foreground mb-4 flex items-center gap-2">
-                      <Layers size={16} /> MTF Analysis
-                    </h3>
-                    <div className="grid grid-cols-4 gap-3">
-                       {['M1', 'M5', 'M15', 'M30', 'H1', 'H4', 'D1', 'W1'].map(tf => (
-                         <div key={tf} className="flex flex-col items-center gap-1">
-                            <span className="text-[10px] font-bold text-muted-foreground">{tf}</span>
-                            <div className={cn(
-                              "w-full h-2 rounded-full",
-                              indicators.trend === 'Bullish' ? "bg-emerald-500" : "bg-rose-500"
-                            )} />
-                         </div>
-                       ))}
-                    </div>
-                 </div>
-
-                 <NewsFilter />
-              </div>
-            </div>
-
-            {/* Signal & Actions */}
-            <div className="xl:col-span-4 flex flex-col gap-6">
-              <SignalCard signal={currentSignal} />
-              <RiskCalculator currentSignal={currentSignal} />
-            </div>
-          </div>
-        </div>
+        {renderMainContent()}
       </main>
     </div>
   );
 };
 
-const SidebarItem = ({ icon, label, active = false }: { icon: React.ReactNode, label: string, active?: boolean }) => (
-  <div className={cn(
-    "flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors group",
-    active ? "bg-primary/10 text-primary border border-primary/20" : "hover:bg-muted text-muted-foreground hover:text-foreground"
-  )}>
+interface SidebarItemProps {
+  icon: React.ReactNode;
+  label: string;
+  active?: boolean;
+  onClick?: () => void;
+}
+
+const SidebarItem: React.FC<SidebarItemProps> = ({ icon, label, active = false, onClick }) => (
+  <div 
+    onClick={onClick}
+    className={cn(
+      "flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors group",
+      active ? "bg-primary/10 text-primary border border-primary/20" : "hover:bg-muted text-muted-foreground hover:text-foreground"
+    )}
+  >
     {icon}
     <span className="text-sm font-bold tracking-tight">{label}</span>
   </div>
