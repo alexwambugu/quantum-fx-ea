@@ -1,83 +1,71 @@
-# Implementation Plan - Advanced Forex Trading Signal System (Web Dashboard)
+# Plan: Link MT5 Accounts (Real & Demo)
 
-This project involves building a professional, high-fidelity React-based Forex Trading Dashboard. It will visualize an "Advanced Forex Buy & Sell Signal System" by simulating real-time market data, trend analysis, and signal generation based on specific technical criteria (EMA crosses, RSI, MACD, Volume, and Market Structure).
+Allow users to securely link their MetaTrader 5 (MT5) real and demo accounts to the dashboard for real-time tracking and trade execution.
 
-## Scope Summary
-- **Professional Trading UI:** Dark-mode dashboard with a professional "Quant" aesthetic.
-- **Smart Trend Detection:** Dynamic calculation and visualization of EMA (50, 200, 800) relationships.
-- **Signal Engine (Simulated):** Core logic implementation for high-probability BUY/SELL signals based on 7+ confirmation criteria.
-- **SMC Visuals:** Identification and display of Smart Money Concepts like Order Blocks, FVG, and BOS on a live chart.
-- **Multi-Timeframe Analysis:** Dashboard panel showing confluence across timeframes from M1 to Daily.
-- **AI Confidence Score:** Real-time signal strength meter.
-- **Risk Management & Utilities:** Interactive lot size calculator, global session clocks, and an economic calendar news filter.
+## Scope & Non-Goals
+- **In-scope:**
+  - Database schema for MT5 accounts (login, server, type, encrypted password placeholder).
+  - UI for account management (listing, adding, deleting accounts).
+  - Mock integration layer (Edge Function stubs) for MT5 connectivity.
+  - State management to toggle between active accounts in the dashboard.
+- **Non-goals:**
+  - Real MT5 binary protocol implementation (requires external middleware/bridge).
+  - Multi-user authentication (assuming a single-user dashboard for this phase, but built with `user_id` for future-proofing).
 
-## Non-Goals
-- **Live MT5 Integration:** No direct bridge to a local MT5 terminal (out of scope for web).
-- **Real Broker Execution:** No actual financial transactions; simulated execution only.
-- **Persistent Backend:** No user accounts or remote database (Session-based/LocalStorage only).
+## Auth & RLS model
+**Auth in scope:** no
+**Model:** no_auth_public_read
+**RLS strategy:** All users can read/write for now (demo mode).
+**Frontend implication:** Toasts for connection status; simple dropdown to switch "active" MT5 account.
 
-## Assumptions
-- The application will utilize a simulated price feed (random walk with bias) to drive the indicators.
-- `lightweight-charts` will be used for professional-grade technical visualization.
+## Migration baseline
+**Local migrations in project:** none
+**User confirmed proceed on connected DB:** yes
 
 ## Affected Areas
-- **Frontend Components:** Dashboard layout, Trading Chart (SMC/Indicators), Signal Cards, Risk Calculator, News Feed.
-- **State Management:** Custom hooks for data simulation and technical indicator processing.
+- **Database:** New `mt5_accounts` table.
+- **Frontend:**
+  - `src/components/views/SettingsView.tsx` (new) - Manage accounts.
+  - `src/components/Dashboard.tsx` - Sidebar update and account switcher.
+  - `src/hooks/useMT5.ts` (new) - Hook for account management and simulated balance/equity updates.
 
-## Ordered Phases
+## Phases
 
-### Phase 1: Core Dashboard Shell & Theme
-- **Deliverables:** Main dark-mode layout, sidebar navigation, and header with trading session clocks.
-- **Owner:** frontend_engineer
-- **Dependencies:** None
+### Phase 1: Database Schema (supabase_engineer)
+- Create `mt5_accounts` table: `id`, `account_login` (text), `account_server` (text), `account_password` (text), `account_type` (demo/real), `balance` (numeric), `equity` (numeric), `is_active` (boolean).
+- Enable RLS and add public policies for CRUD.
 
-### Phase 2: Signal Engine & Data Simulation
-- **Deliverables:** `useSignalEngine` hook for tick generation and technical indicator math (EMA, RSI, MACD).
-- **Owner:** frontend_engineer
-- **Dependencies:** Phase 1
+### Phase 2: MT5 Management UI (frontend_engineer)
+- Create `src/components/views/SettingsView.tsx`.
+- Implement form to add MT5 account (Login, Password, Server, Type).
+- Implement list of connected accounts with "Delete" and "Set Active" actions.
+- Update `Dashboard.tsx` to include "Settings" in the sidebar navigation.
 
-### Phase 3: SMC Charting & Visualization
-- **Deliverables:** Integrated chart with EMA overlays and SMC detection markers (Order Blocks, FVG).
-- **Owner:** frontend_engineer
-- **Dependencies:** Phase 2
-
-### Phase 4: Signal UI & Confluence Panels
-- **Deliverables:** Signal alert cards (Entry/SL/TP) and Multi-Timeframe status grid.
-- **Owner:** frontend_engineer
-- **Dependencies:** Phase 2
-
-### Phase 5: Risk Management & News Filter
-- **Deliverables:** Lot size calculator and simulated economic calendar with "Trade Blocked" logic.
-- **Owner:** quick_fix_engineer
-- **Dependencies:** Phase 1
+### Phase 3: Integration Hook (frontend_engineer)
+- Create `src/hooks/useMT5.ts` to fetch and manage MT5 accounts from Supabase.
+- Integrate with `Dashboard.tsx` to show current active account balance/equity.
 
 ## Execution Handoff
 
 **Plan status:** ready
 
 **Dispatch order:**
-1. frontend_engineer — Setup layout, engine, chart, and signal UI.
-2. quick_fix_engineer — Implement calculators, session clocks, and news filters.
+1. supabase_engineer — Create account management schema.
+2. frontend_engineer — Build UI and integration hooks.
 
 **Per-agent instructions:**
+### 1. supabase_engineer
+- **Phases:** Phase 1
+- **Scope:** Create `mt5_accounts` table.
+- **Files:** `supabase/migrations/20240619000000_mt5_accounts.sql`
+- **Depends on:** none
+- **Acceptance criteria:** Table exists with necessary columns. RLS allows public access.
 
-### 1. frontend_engineer
-- **Phases:** 1, 2, 3, 4
-- **Scope:** 
-    - Build the `useSignalEngine` hook to simulate EURUSD data and calculate EMA 50/200/800, RSI, and MACD.
-    - Implement the exact Buy/Sell logic provided (7 criteria for Buy, 7 for Sell).
-    - Use `lightweight-charts` for the main price visualization with EMA lines.
-    - Implement the "SMC" visual markers (Rectangles for Order Blocks/FVG).
-    - Create the Signal cards showing Confidence, Entry, SL, and TPs.
-- **Files:** `src/hooks/useSignalEngine.ts`, `src/components/TradingChart.tsx`, `src/components/SignalCard.tsx`, `src/components/Dashboard.tsx`
-- **Acceptance criteria:** Signal cards appear ONLY when all conditions are met. Chart reflects simulated price movement in real-time.
+### 2. frontend_engineer
+- **Phases:** Phase 2, Phase 3
+- **Scope:** Build account management UI and hook. Run `bun add @supabase/supabase-js`.
+- **Files:** `src/components/views/SettingsView.tsx`, `src/hooks/useMT5.ts`, `src/components/Dashboard.tsx`.
+- **Depends on:** supabase_engineer
+- **Acceptance criteria:** User can add a demo/real account and see it in the terminal dashboard.
 
-### 2. quick_fix_engineer
-- **Phases:** 5
-- **Scope:** 
-    - Create a `RiskCalculator` component (inputs: Balance, Risk %, SL pips -> output: Lot Size).
-    - Create a `SessionClock` component showing Sydney, Tokyo, London, NY status based on UTC.
-    - Create a `NewsFilter` component that blocks trading (visual flag) during simulated high-impact events.
-- **Files:** `src/components/RiskCalculator.tsx`, `src/components/NewsFilter.tsx`, `src/components/SessionClock.tsx`
-- **Depends on:** frontend_engineer (integration into Dashboard)
-- **Acceptance criteria:** Risk calculator uses correct forex lot formulas. News filter correctly flags "Trade Blocked" based on simulated event times.
+IS_SUPABASE_REQUIRED: false
